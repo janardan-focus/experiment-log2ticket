@@ -146,7 +146,7 @@ async function trigger(slug, title) {
     </div>`;
 }
 
-async function callTriage(path, label) {
+async function callEndpoint(path, label) {
   out.innerHTML = `<p class="empty">${label}…</p>`;
   let r, data;
   try {
@@ -158,7 +158,7 @@ async function callTriage(path, label) {
   }
   if (!r.ok) {
     out.innerHTML = `<div class="card">
-      <h3 class="err">${esc(data.error ?? "Triage failed")}</h3>
+      <h3 class="err">${esc(data.error ?? "Something went wrong")}</h3>
       <pre>${esc(data.detail ?? JSON.stringify(data, null, 2))}</pre></div>`;
     return;
   }
@@ -166,9 +166,9 @@ async function callTriage(path, label) {
 }
 
 document.getElementById("run").onclick =
-  () => callTriage("/triage", "Assembling context and calling the model");
+  () => callEndpoint("/write-ticket", "Assembling context and calling the model");
 document.getElementById("inspect").onclick =
-  () => callTriage("/triage/inspect", "Assembling context");
+  () => callEndpoint("/context", "Assembling context");
 
 function render(d) {
   let html = "";

@@ -46,7 +46,7 @@ A single agent per incident, with the whole write surface gated at the MCP endpo
                                                                     ▼
                                                     IncidentStore (in memory)
                                                                     │
-  Browser UI  ──click──►  POST /triage  ─────────────────────────────┤
+  Browser UI  ──click──►  POST /write-ticket  ────────────────────────┤
   (Run triage)                                                      ▼
                                                           ContextAssembler
                                         ├─ source excerpt per in-repo frame (±15 lines)
@@ -106,7 +106,7 @@ src/log2ticket_triage/
   guardrails.py           # repo allowlist, per-run write cap
   cli.py                  # typer: `triage run`, `triage inspect`, `triage demo`, `triage doctor`
 samples/app/              # the "monitored backend" — the code the agent reads
-  main.py                 # FastAPI app, global exception handler, /triage endpoints
+  main.py                 # FastAPI app, global exception handler, /context + /write-ticket
   orders.py payments.py   # where the bugs actually live
   static/index.html       # the demo UI
 tests/
@@ -129,7 +129,7 @@ tests/
 
 The app's global exception handler catches each one, writes a full trace to `samples/logs/app_errors.log`, and returns a 500 with an incident id — exactly the shape the real proposal describes.
 
-**Right — Run triage.** A button that calls `POST /triage`, which reads the newest incident from the log and runs the pipeline. The panel then renders, in order:
+**Right — Write a ticket.** A button that calls `POST /write-ticket`, which reads the newest incident from the log and runs the pipeline. The panel then renders, in order:
 
 1. The assembled `IncidentContext` — frames, which ones had source pulled, the excerpts themselves, what got redacted
 2. Which existing issues the agent searched and what it found

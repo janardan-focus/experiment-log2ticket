@@ -85,8 +85,8 @@ async def mode() -> dict[str, object]:
 # --- Ticket writing ----------------------------------------------------------
 
 
-@app.post("/triage/inspect")
-async def triage_inspect() -> JSONResponse:
+@app.post("/context")
+async def show_context() -> JSONResponse:
     """Show exactly what the model would be sent. Free — no API key needed."""
     event = store.latest()
     if event is None:
@@ -108,8 +108,8 @@ async def triage_inspect() -> JSONResponse:
     )
 
 
-@app.post("/triage")
-async def triage() -> JSONResponse:
+@app.post("/write-ticket")
+async def write_ticket() -> JSONResponse:
     """Full run: assemble context, search existing issues, write the ticket."""
     event = store.latest()
     if event is None:
@@ -133,9 +133,9 @@ async def triage() -> JSONResponse:
     }
 
     if result.error:
-        # A failed triage degrades to a message, never to a crashed request —
+        # A failed run degrades to a message, never to a crashed request —
         # the context above is still worth showing.
-        payload["error"] = "Triage failed"
+        payload["error"] = "Ticket writing failed"
         payload["detail"] = result.error
         return JSONResponse(status_code=502, content=payload)
 

@@ -208,7 +208,7 @@ from a model whose whole job is to read it is a bug, not caution.
 The UI renders the redaction report alongside the context, so the safety claim
 is visible rather than merely computed.
 
-**`POST /triage/inspect` returns exactly this** — the fully assembled context,
+**`POST /context` returns exactly this** — the fully assembled context,
 as text, before any model sees it. It needs no API key and costs nothing.
 
 ## Stage 6 — The agent
@@ -287,7 +287,7 @@ visible rather than merely asserted.
 | 4 | Context assembler | Built — verified against a live exception |
 | 4 | Library-frame collapse, path shortening | Built — verified 15 → 1 |
 | 5 | Redaction | Built — verified, zero leaks with locals on |
-| 5 | `POST /triage/inspect` | Built — verified |
+| 5 | `POST /context` | Built — verified |
 | 5 | Redaction panel in the UI | Built |
 | 6 | LLM agent + MCP client | Built — unit-tested; **not yet run against real GitHub** |
 | 7 | Guardrails | Built — allowlist, cap, refusal-as-result all tested |
