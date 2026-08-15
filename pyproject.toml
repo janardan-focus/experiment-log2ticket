@@ -1,0 +1,39 @@
+[project]
+name = "log2ticket-triage"
+version = "0.1.0"
+description = "Exploration: LLM-generated GitHub tickets from backend error traces"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain>=1.0",
+    "langchain-anthropic>=1.0",
+    "langchain-mcp-adapters>=0.1",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "typer>=0.15",
+    "rich>=13.9",
+    "httpx>=0.28",
+]
+
+[project.optional-dependencies]
+# Swap providers by installing the matching package and setting LLM_MODEL.
+openai = ["langchain-openai>=1.0"]
+google = ["langchain-google-genai>=2.0"]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
+
+# [project.scripts]
+# Restore once src/log2ticket_triage/cli.py exists. Declaring it early makes
+# `pip install -e .` succeed and then `triage` fail with ModuleNotFoundError.
+# triage = "log2ticket_triage.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/log2ticket_triage"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

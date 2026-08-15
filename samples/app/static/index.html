@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log2Ticket — LLM triage demo</title>
+<style>
+  :root {
+    --bg: #fbfaf8; --panel: #ffffff; --border: #e4e0d9; --ink: #1c1a17;
+    --muted: #6b6560; --accent: #9c4221; --accent-soft: #fdf3ef;
+    --ok: #2f6f4f; --warn: #8a6d1f; --code-bg: #f6f4f1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161513; --panel: #1e1d1a; --border: #33302b; --ink: #ece8e1;
+      --muted: #9a938a; --accent: #e0794f; --accent-soft: #2a201b;
+      --ok: #6fbf95; --warn: #d4b45f; --code-bg: #141311;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    padding: 20px 28px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+  }
+  h1 { font-size: 18px; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .badge {
+    margin-left: auto; font-size: 12px; font-weight: 600; letter-spacing: .04em;
+    padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border);
+  }
+  .badge.dry { color: var(--ok); }
+  .badge.live { color: #fff; background: var(--accent); border-color: var(--accent); }
+  main {
+    display: grid; grid-template-columns: 320px 1fr; gap: 0;
+    min-height: calc(100vh - 66px);
+  }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .left { border-right: 1px solid var(--border); padding: 22px; }
+  .right { padding: 22px 28px; overflow-x: auto; }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--muted); margin: 0 0 14px; font-weight: 600;
+  }
+  button {
+    display: block; width: 100%; text-align: left; margin-bottom: 8px;
+    padding: 11px 13px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--panel); color: var(--ink); cursor: pointer;
+    font: inherit; transition: border-color .12s, background .12s;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+  button:disabled { opacity: .5; cursor: default; }
+  button .t { font-weight: 600; }
+  button .d { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .run { margin-top: 18px; border-color: var(--accent); background: var(--accent-soft); }
+  .run .t { color: var(--accent); }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 13px; overflow-x: auto; font-size: 12.5px; line-height: 1.5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0 0 16px;
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px; margin-bottom: 16px;
+  }
+  .card h3 { margin: 0 0 4px; font-size: 15px; }
+  .meta { color: var(--muted); font-size: 12.5px; margin-bottom: 12px; }
+  .tag {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--border); margin-right: 5px; color: var(--muted);
+  }
+  .empty { color: var(--muted); font-style: italic; padding: 40px 0; }
+  .err { color: var(--accent); }
+  .step { margin-bottom: 22px; }
+  .step > h2 { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Log2Ticket</h1>
+  <span class="sub">break something, then watch an LLM write the ticket for it</span>
+  <span id="badge" class="badge">…</span>
+</header>
+
+<main>
+  <section class="left">
+    <h2>1 · Break something</h2>
+    <div id="buttons"></div>
+
+    <h2 style="margin-top:26px">2 · Triage it</h2>
+    <button class="run" id="run">
+      <span class="t">Run triage on latest error</span>
+      <span class="d">assemble context, then ask the LLM</span>
+    </button>
+    <button id="inspect">
+      <span class="t">Show context only</span>
+      <span class="d">no LLM call, no API key needed</span>
+    </button>
+  </section>
+
+  <section class="right" id="out">
+    <p class="empty">Trigger an error on the left to begin.</p>
+  </section>
+</main>
+
+<script>
+const BOOMS = [
+  ["zero-division", "Divide by zero",    "ZeroDivisionError in orders.py"],
+  ["key-error",     "Missing key",       "KeyError on an unvalidated payload"],
+  ["attribute-error", "Null reference",  "AttributeError on a None customer"],
+  ["timeout",       "Upstream timeout",  "looks transient — ticket or not?"],
+  ["repeat-bug",    "Same bug, moved",   "same defect, new line — duplicate test"],
+];
+
+const out = document.getElementById("out");
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+BOOMS.forEach(([slug, title, desc]) => {
+  const b = document.createElement("button");
+  b.innerHTML = `<span class="t">${title}</span><span class="d">${desc}</span>`;
+  b.onclick = () => trigger(slug, title);
+  document.getElementById("buttons").appendChild(b);
+});
+
+fetch("/api/mode").then(r => r.json()).then(m => {
+  const el = document.getElementById("badge");
+  el.textContent = m.dry_run ? "DRY RUN" : "LIVE — writes to " + m.repo;
+  el.className = "badge " + (m.dry_run ? "dry" : "live");
+});
+
+async function trigger(slug, title) {
+  out.innerHTML = `<p class="empty">Triggering ${esc(title)}…</p>`;
+  const r = await fetch("/boom/" + slug, { method: "POST" });
+  const body = await r.json();
+  out.innerHTML = `
+    <div class="card">
+      <h3>${esc(title)} — captured</h3>
+      <div class="meta">HTTP ${r.status} · incident ${esc(body.incident_id ?? "?")}</div>
+      <pre>${esc(JSON.stringify(body, null, 2))}</pre>
+      <div class="meta">Captured in-process from the live exception — nothing
+        written to disk. Now run triage.</div>
+    </div>`;
+}
+
+async function callTriage(path, label) {
+  out.innerHTML = `<p class="empty">${label}…</p>`;
+  let r, data;
+  try {
+    r = await fetch(path, { method: "POST" });
+    data = await r.json();
+  } catch (e) {
+    out.innerHTML = `<div class="card"><h3 class="err">Request failed</h3><pre>${esc(e)}</pre></div>`;
+    return;
+  }
+  if (!r.ok) {
+    out.innerHTML = `<div class="card">
+      <h3 class="err">${esc(data.error ?? "Triage failed")}</h3>
+      <pre>${esc(data.detail ?? JSON.stringify(data, null, 2))}</pre></div>`;
+    return;
+  }
+  render(data);
+}
+
+document.getElementById("run").onclick =
+  () => callTriage("/triage", "Assembling context and calling the model");
+document.getElementById("inspect").onclick =
+  () => callTriage("/triage/inspect", "Assembling context");
+
+function render(d) {
+  let html = "";
+
+  if (d.redactions) {
+    const hits = Object.entries(d.redactions);
+    const body = hits.length
+      ? hits.map(([rule, n]) =>
+          `<span class="tag">${esc(rule)} × ${n}</span>`).join("")
+      : `<span class="meta">nothing matched — no secrets found in this incident</span>`;
+    html += `<div class="step"><h2>Redacted before sending</h2>
+      <div class="card">${body}</div></div>`;
+  }
+
+  if (d.context_text) {
+    html += `<div class="step"><h2>What the model is sent</h2>
+      <pre>${esc(d.context_text)}</pre></div>`;
+  }
+
+  if (d.searched) {
+    html += `<div class="step"><h2>What the agent did</h2>
+      <pre>${esc(d.searched)}</pre></div>`;
+  }
+
+  const g = d.guardrails;
+  if (g && Object.keys(g).length) {
+    const refusals = (g.refusals || []).length
+      ? `<pre>${esc(g.refusals.join("\n"))}</pre>`
+      : `<span class="meta">no tool calls refused</span>`;
+    html += `<div class="step"><h2>Guardrails</h2>
+      <div class="card">
+        <span class="tag">writes ${g.writes_used} / ${g.write_cap}</span>
+        ${d.dry_run ? '<span class="tag">dry run — write tools not loaded</span>' : ""}
+        <div style="margin-top:10px">${refusals}</div>
+      </div></div>`;
+  }
+
+  const t = d.ticket;
+  if (t) {
+    const dup = t.duplicate_of
+      ? `<div class="meta">matched existing issue #${t.duplicate_of}</div>` : "";
+    html += `<div class="step"><h2>Generated ticket · ${esc(t.action)}</h2>
+      <div class="card">
+        <h3>${esc(t.title)}</h3>
+        <div class="meta">
+          <span class="tag">${esc(t.severity)}</span>
+          ${(t.labels || []).map(l => `<span class="tag">${esc(l)}</span>`).join("")}
+          confidence ${t.confidence}
+        </div>
+        ${dup}
+        <pre>${esc(t.description_markdown)}</pre>
+        <h3>Root cause</h3><p>${esc(t.root_cause)}</p>
+        <h3>Suggested fix</h3><pre>${esc(t.suggested_fix)}</pre>
+        <div class="meta"><strong>Why:</strong> ${esc(t.reasoning)}</div>
+      </div></div>`;
+  }
+
+  out.innerHTML = html || `<p class="empty">Nothing came back.</p>`;
+}
+</script>
+</body>
+</html>
