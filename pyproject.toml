@@ -1,5 +1,5 @@
 [project]
-name = "log2ticket-triage"
+name = "log2ticket"
 version = "0.1.0"
 description = "Exploration: LLM-generated GitHub tickets from backend error traces"
 requires-python = ">=3.11"
@@ -23,16 +23,16 @@ google = ["langchain-google-genai>=2.0"]
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
 
 # [project.scripts]
-# Restore once src/log2ticket_triage/cli.py exists. Declaring it early makes
-# `pip install -e .` succeed and then `triage` fail with ModuleNotFoundError.
-# triage = "log2ticket_triage.cli:app"
+# Restore once src/log2ticket/cli.py exists. Declaring it early makes
+# `pip install -e .` succeed and then the command fail with ModuleNotFoundError.
+# log2ticket = "log2ticket.cli:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/log2ticket_triage"]
+packages = ["src/log2ticket"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

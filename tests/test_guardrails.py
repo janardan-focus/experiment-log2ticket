@@ -8,10 +8,10 @@ import asyncio
 import pytest
 from langchain_core.tools import StructuredTool
 
-from log2ticket_triage.ticket_writer import TicketWriter
-from log2ticket_triage.capture import capture_exception
-from log2ticket_triage.config import Settings
-from log2ticket_triage.guardrails import WriteGuard
+from log2ticket.ticket_writer import TicketWriter
+from log2ticket.capture import capture_exception
+from log2ticket.config import Settings
+from log2ticket.guardrails import WriteGuard
 
 CALLS: list[dict] = []
 

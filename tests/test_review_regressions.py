@@ -11,11 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from log2ticket_triage.capture import capture_exception
-from log2ticket_triage.config import Settings
-from log2ticket_triage.context import ContextAssembler
-from log2ticket_triage.models import Frame, IncidentContext, IncidentEvent
-from log2ticket_triage.redact import redact
+from log2ticket.capture import capture_exception
+from log2ticket.config import Settings
+from log2ticket.context import ContextAssembler
+from log2ticket.models import Frame, IncidentContext, IncidentEvent
+from log2ticket.redact import redact
 
 
 @pytest.fixture

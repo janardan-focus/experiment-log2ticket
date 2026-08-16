@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from log2ticket_triage.redact import redact, redaction_report
+from log2ticket.redact import redact, redaction_report
 
 SECRETS = [
     ("anthropic key", "sk-ant-api03-AbCdEfGh1234567890xyz", "sk-ant-api03"),

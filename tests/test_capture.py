@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 
-from log2ticket_triage.capture import capture_exception, exception_chain, is_library_path
-from log2ticket_triage.config import Settings
-from log2ticket_triage.store import IncidentStore
+from log2ticket.capture import capture_exception, exception_chain, is_library_path
+from log2ticket.config import Settings
+from log2ticket.store import IncidentStore
 
 
 def _settings(**overrides) -> Settings:

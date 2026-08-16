@@ -15,14 +15,15 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from log2ticket_triage.capture import capture_exception  # noqa: E402
-from log2ticket_triage.config import get_settings  # noqa: E402
-from log2ticket_triage.context import ContextAssembler  # noqa: E402
-from log2ticket_triage.store import IncidentStore  # noqa: E402
-from log2ticket_triage.ticket_writer import TicketWriter  # noqa: E402
+from log2ticket.capture import capture_exception  # noqa: E402
+from log2ticket.config import get_settings  # noqa: E402
+from log2ticket.context import ContextAssembler  # noqa: E402
+from log2ticket.store import IncidentStore  # noqa: E402
+from log2ticket.ticket_writer import TicketWriter  # noqa: E402
 
 from . import orders, payments  # noqa: E402
 
@@ -34,6 +35,7 @@ assembler = ContextAssembler(settings)
 ticket_writer = TicketWriter(settings)
 
 app = FastAPI(title="Log2Ticket sample backend")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.exception_handler(Exception)

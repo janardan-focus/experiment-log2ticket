@@ -9,11 +9,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated
 
+from dotenv import load_dotenv
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-# src/log2ticket_triage/config.py -> src/log2ticket_triage -> src -> repo root
+# src/log2ticket/config.py -> src/log2ticket -> src -> repo root
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+# pydantic-settings' env_file only fills fields Settings declares — it never
+# writes to os.environ. Provider keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, ...)
+# aren't Settings fields; they're read straight from os.environ by langchain's
+# provider clients. Without this, a correctly filled-in .env silently never
+# reaches them, and the failure surfaces as a TypeError deep inside whichever
+# SDK, not as anything actionable.
+load_dotenv(PROJECT_ROOT / ".env")
 
 MCP_BASE_URL = "https://api.githubcopilot.com/mcp/x/issues"
 

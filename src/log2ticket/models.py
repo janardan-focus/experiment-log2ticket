@@ -1,7 +1,7 @@
 """The data that moves through the pipeline.
 
 `IncidentContext` is the object this exploration is really about: it is the
-complete set of what the model gets to see. If a triage result is wrong, look
+complete set of what the model gets to see. If a generated ticket is wrong, look
 here first.
 
 `IncidentEvent` is the seam. It is produced in-process by `capture_exception`

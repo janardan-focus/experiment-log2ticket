@@ -13,6 +13,7 @@ prompt injection or model error can reach a capability that was never loaded.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -73,6 +74,15 @@ Write only to {repo}. A refused tool call means a guardrail stopped you — read
 it, and do not retry against a different repository.
 """
 
+# LLM_MODEL is "<provider>:<model>" (LangChain's init_chat_model convention).
+# Each provider's client reads its key from os.environ directly — not from
+# Settings — so this is what preflight checks before the first network call.
+_PROVIDER_ENV_VAR = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "google_genai": "GOOGLE_API_KEY",
+}
+
 OUTPUT_RULES = """\
 
 The ticket you produce must be worth more than the traceback it came from:
@@ -108,6 +118,13 @@ class TicketWriter:
 
     def _preflight(self) -> str | None:
         """Fail with something actionable rather than a stack trace."""
+        provider, _, _ = self.settings.llm_model.partition(":")
+        env_var = _PROVIDER_ENV_VAR.get(provider)
+        if env_var and not os.environ.get(env_var):
+            return (
+                f"{env_var} is not set. LLM_MODEL is '{self.settings.llm_model}', "
+                f"which needs it. Add {env_var}=... to .env and restart."
+            )
         if not self.settings.github_token:
             return "GITHUB_TOKEN is not set. The agent needs it to reach the GitHub MCP server."
         if not self.settings.github_repo:
@@ -170,14 +187,14 @@ class TicketWriter:
                         {
                             "role": "user",
                             "content": (
-                                "Triage this exception.\n\n"
+                                "Investigate this exception and write the ticket.\n\n"
                                 + context.to_prompt_block()
                             ),
                         }
                     ]
                 }
             )
-        except Exception as exc:  # noqa: BLE001 — a failed triage must not crash the app
+        except Exception as exc:  # noqa: BLE001 — a failed run must not crash the app
             return TicketResult(
                 context=context,
                 ticket=None,
