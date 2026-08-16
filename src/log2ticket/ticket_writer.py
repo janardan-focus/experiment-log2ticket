@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from langchain.agents import create_agent
+from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from .config import Settings
@@ -172,7 +173,8 @@ class TicketWriter:
                     }
                 }
             )
-            tools = guard.wrap(await client.get_tools())
+            tools = _sanitize_tool_schemas(await client.get_tools())
+            tools = guard.wrap(tools)
 
             agent = create_agent(
                 self.settings.llm_model,
@@ -208,6 +210,49 @@ class TicketWriter:
             tool_calls=_describe_tool_calls(result.get("messages", [])),
             guardrails=guard.summary(),
         )
+
+
+def _drop_non_string_enums(schema: Any) -> Any:
+    """Strip `enum` entries that contain a non-string value, recursively.
+
+    GitHub's MCP server emits schemas like {"type": "boolean", "enum": [true]}
+    to mean "this field, if set, must be true" — valid JSON Schema, but
+    Gemini's function-calling schema requires every enum value to be a string
+    and rejects the whole tool otherwise (ValidationError deep inside
+    langchain-google-genai, not something this app raises). `type` already
+    carries the real constraint on a boolean field, so dropping `enum` here
+    loses nothing a model needs.
+    """
+    if isinstance(schema, dict):
+        return {
+            key: _drop_non_string_enums(value)
+            for key, value in schema.items()
+            if not (
+                key == "enum"
+                and isinstance(value, list)
+                and any(not isinstance(item, str) for item in value)
+            )
+        }
+    if isinstance(schema, list):
+        return [_drop_non_string_enums(item) for item in schema]
+    return schema
+
+
+def _sanitize_tool_schemas(tools: list[BaseTool]) -> list[BaseTool]:
+    """Normalise every tool's JSON schema for the strictest provider we support.
+
+    Anthropic tolerates the raw MCP schemas as-is; Gemini does not. Rather than
+    branch on provider, sanitize once so every provider gets the same,
+    guaranteed-valid schema — a schema that's already clean passes through
+    unchanged.
+    """
+    cleaned: list[BaseTool] = []
+    for tool in tools:
+        schema = getattr(tool, "args_schema", None)
+        if isinstance(schema, dict):
+            tool = tool.model_copy(update={"args_schema": _drop_non_string_enums(schema)})
+        cleaned.append(tool)
+    return cleaned
 
 
 def _describe_tool_calls(messages: list[Any]) -> list[str]:

@@ -17,6 +17,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+# To manually add the src/ directory to sys.path for this sample, so that it can import
+# log2ticket. In a real service, log2ticket would be installed as a package
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from log2ticket.capture import capture_exception  # noqa: E402

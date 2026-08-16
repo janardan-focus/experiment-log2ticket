@@ -19,7 +19,14 @@ from langchain_core.tools import BaseTool
 from .config import Settings
 
 # MCP issue tools that mutate state. Everything else is read-only.
-WRITE_TOOLS = frozenset({"issue_write", "add_issue_comment"})
+#
+# The `issues` toolset is bigger than the four tools this app was designed
+# against — it also exposes get_label, list_issue_fields, list_issue_types,
+# list_issues (all read-only) and sub_issue_write (a write). sub_issue_write
+# was missing here for a while: it mutates a real issue exactly like
+# issue_write does, but wasn't in this set, so in live mode it bypassed the
+# repo allowlist and the write cap entirely.
+WRITE_TOOLS = frozenset({"issue_write", "add_issue_comment", "sub_issue_write"})
 
 
 class GuardrailError(RuntimeError):
@@ -54,9 +61,10 @@ class WriteGuard:
     def _check_cap(self, tool_name: str) -> None:
         if self.writes_used >= self.settings.max_writes_per_run:
             raise GuardrailError(
-                f"Refused: this run already made {self.writes_used} writes, "
-                f"the limit is {self.settings.max_writes_per_run}. "
-                "Stop writing and summarise what you have done."
+                f"Refused: {tool_name} blocked — this run already made "
+                f"{self.writes_used} writes, the limit is "
+                f"{self.settings.max_writes_per_run}. Stop writing and "
+                "summarise what you have done."
             )
 
     # --- wrapping ---
@@ -74,7 +82,12 @@ class WriteGuard:
         ]
 
     def _gate(self, tool: BaseTool) -> BaseTool:
-        original = tool.coroutine
+        # getattr, not tool.coroutine: BaseTool doesn't declare .coroutine —
+        # only StructuredTool does. Every MCP tool is a StructuredTool today,
+        # but a plain sync Tool would have no such attribute at all, not just
+        # a None one, and direct access would raise instead of falling
+        # through to the guard below.
+        original = getattr(tool, "coroutine", None)
         guard = self
         name = tool.name
 
