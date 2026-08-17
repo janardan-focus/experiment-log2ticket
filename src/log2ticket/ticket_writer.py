@@ -93,8 +93,6 @@ The ticket you produce must be worth more than the traceback it came from:
 Include the stack and any local variable values you were given.
 - root_cause: the actual defect in the code you were shown. Not a restatement \
 of the exception.
-- suggested_fix: a specific change — the guard to add, the line to alter, ideally \
-a diff. "Add error handling" is not a fix.
 - reasoning: why this is or is not a duplicate. This is logged, never posted.
 
 You were given the source around each failing line, and possibly the variable \

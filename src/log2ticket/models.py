@@ -154,9 +154,6 @@ class TicketOutcome(BaseModel):
     )
     description_markdown: str
     root_cause: str
-    suggested_fix: str = Field(
-        description="Concrete: a named change or a diff. Not 'add error handling'."
-    )
     severity: Literal["critical", "high", "medium", "low"]
     labels: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)

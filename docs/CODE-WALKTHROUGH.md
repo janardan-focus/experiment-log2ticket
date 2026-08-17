@@ -338,7 +338,6 @@ TicketOutcome(
     title="[Backend] ZeroDivisionError in orders.py:create_order",
     description_markdown="...",
     root_cause="quantity is read from CATALOG without checking for zero...",
-    suggested_fix="guard the division: if quantity == 0: raise ValueError(...)",
     severity="medium",
     labels=["bug", "backend"],
     confidence=0.95,
