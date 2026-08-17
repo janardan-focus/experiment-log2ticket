@@ -102,7 +102,7 @@ def test_missing_file_is_refused_not_crashed(repo: Path):
     assert assembler.build(_event([frame])).frames[0].source_excerpt is None
 
 
-def test_secrets_in_source_are_redacted(repo: Path):
+def test_secrets_in_source_are_sanitized(repo: Path):
     assembler = ContextAssembler(_settings(repo))
     frame = Frame(file=str(repo / "creds.py"), line=1, function="f", in_repo=True)
 
@@ -113,7 +113,7 @@ def test_secrets_in_source_are_redacted(repo: Path):
     assert "REDACTED" in excerpt
 
 
-def test_secrets_in_locals_are_redacted(repo: Path):
+def test_secrets_in_locals_are_sanitized(repo: Path):
     assembler = ContextAssembler(_settings(repo))
     frame = Frame(
         file=str(repo / "app.py"),

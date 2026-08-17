@@ -55,7 +55,7 @@ RULES: list[Rule] = [
     (
         "google_key",
         # Real keys are AIza + 35 chars, but pinning the length exactly means a
-        # near-miss sails through. A redaction rule should over-match.
+        # near-miss sails through. A sanitizing rule should over-match.
         re.compile(r"\bAIza[0-9A-Za-z\-_]{20,}"),
         "[REDACTED_API_KEY]",
     ),
@@ -93,8 +93,8 @@ RULES: list[Rule] = [
 ]
 
 
-def redact(text: str) -> str:
-    """Apply every rule in order. Safe to call on already-redacted text."""
+def sanitize(text: str) -> str:
+    """Apply every rule in order. Safe to call on already-sanitized text."""
     if not text:
         return text
     for _name, pattern, replacement in RULES:
@@ -102,7 +102,7 @@ def redact(text: str) -> str:
     return text
 
 
-def redaction_report(text: str) -> dict[str, int]:
+def sanitize_report(text: str) -> dict[str, int]:
     """Which rules fired and how often. Used by the UI and by tests."""
     return {
         name: len(pattern.findall(text))

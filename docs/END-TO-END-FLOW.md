@@ -7,7 +7,7 @@ How a backend exception becomes a GitHub ticket.
 
 Click a button → the sample app throws for real → the handler captures the
 **live exception** (no serialising, nothing written to disk) → source and
-locals are attached → redacted → an LLM searches GitHub for a duplicate and
+locals are attached → sanitized → an LLM searches GitHub for a duplicate and
 either reopens it or writes a new ticket with a root cause and a fix.
 
 ```
@@ -16,7 +16,7 @@ either reopens it or writes a new ticket with a root cause and a fix.
                                               │ IncidentEvent
         ┌─────────────────────────────────────┘
         ▼
- 4 Assemble context ──► 5 Redact ──► 6 LLM agent + GitHub MCP ──► 7 Ticket
+ 4 Assemble context ──► 5 Sanitize ──► 6 LLM agent + GitHub MCP ──► 7 Ticket
    source + locals       one gate      search → reopen or create    new/reopened
 ```
 
@@ -25,10 +25,10 @@ either reopens it or writes a new ticket with a root cause and a fix.
 | # | File → function | What it does |
 |---|---|---|
 | 1 | `samples/app/static/index.html`, `app.js` | 5 buttons trigger `/boom/*`; "Write a ticket" / "Show context only" call `/write-ticket` and `/context` |
-| 2 | `samples/app/orders.py`, `payments.py` | Realistic bugs (missing guard, unvalidated key, assumed non-null). `payments.charge` also binds 3 fake secrets to locals — the redaction test fixture |
+| 2 | `samples/app/orders.py`, `payments.py` | Realistic bugs (missing guard, unvalidated key, assumed non-null). `payments.charge` also binds 3 fake secrets to locals — the sanitizing test fixture |
 | 3 | `main.py` → `unhandled_exception_handler`<br>`capture.py` → `capture_exception` | Holds the live exception, so `traceback.StackSummary.extract(walk_tb(...), capture_locals=...)` gives structured frames directly — no log file, no regex parser. Chained exceptions recorded via `__cause__`/`__context__`. Result is an `IncidentEvent` in a bounded in-memory `IncidentStore` (`deque(maxlen=50)`) |
 | 4 | `context.py` → `ContextAssembler.build` | For each in-repo frame: resolves the path, **refuses** (doesn't drop) anything outside `TARGET_REPO_PATH`; excerpt is ±15 lines, budget spent **outward from the failing line** so `->` never gets clipped; ~15 uvicorn/fastapi frames collapse to one line; paths rewritten repo-relative |
-| 5 | `redact.py` | 10 rules at one gate — source, messages, locals all pass through it. Locals are redacted **before** truncation (truncating first can cut the terminator a rule anchors on and let a secret through) |
+| 5 | `sanitize.py` | 10 rules at one gate — source, messages, locals all pass through it. Locals are sanitized **before** truncation (truncating first can cut the terminator a rule anchors on and let a secret through) |
 | 6 | `ticket_writer.py` → `TicketWriter.run` | Connects to GitHub's hosted MCP server. Dry run hits `/readonly` — write tools are **absent from `get_tools()`**, not merely disabled by prompt. `search_issues` → `issue_read` → reopen+comment or create. Preflight checks token/repo/allowlist before any network call; a failed run still returns the assembled context |
 | 7 | `guardrails.py` → `WriteGuard` | Live mode only: repo allowlist, 5 writes/run cap, 0.7 duplicate-confidence floor (below it, create new rather than risk reopening the wrong issue). A refused call is returned as a tool result, not raised |
 
@@ -84,4 +84,4 @@ write regardless. Only set it `false` against a throwaway repo.
 | Why no log file? | Serialising to text then re-parsing it threw away structure already in hand |
 | How is dry run enforced? | GitHub's `/readonly` endpoint omits write tools — structural, not a prompt rule |
 | Path traversal? | `is_relative_to(repo_root)` in `context.py` → `_safe_resolve`; refuse on failure |
-| Redaction order? | One gate, before the model call, before truncation |
+| Sanitizing order? | One gate, before the model call, before truncation |

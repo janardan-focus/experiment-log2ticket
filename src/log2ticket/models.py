@@ -35,11 +35,11 @@ class Frame(BaseModel):
     )
     source_excerpt: str | None = Field(
         default=None,
-        description="Redacted source around `line`. Only set when in_repo.",
+        description="Sanitized source around `line`. Only set when in_repo.",
     )
     locals_repr: dict[str, str] | None = Field(
         default=None,
-        description="Variable name -> truncated, redacted repr. Only when "
+        description="Variable name -> truncated, sanitized repr. Only when "
         "CAPTURE_LOCALS is on and the frame is in-repo.",
     )
 
@@ -61,7 +61,7 @@ class IncidentEvent(BaseModel):
 
 
 class IncidentContext(BaseModel):
-    """Everything the model is sent. Redacted, capped, ready to serialise."""
+    """Everything the model is sent. Sanitized, capped, ready to serialise."""
 
     incident_id: str
     exception_type: str

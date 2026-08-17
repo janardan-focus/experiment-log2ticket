@@ -94,9 +94,9 @@ IncidentStore (in-memory, holds IncidentEvent)
 IncidentEvent (read back out)
         │
         │  ContextAssembler.build()     — log2ticket/context.py
-        │  (redact.py runs inside this step)
+        │  (sanitize.py runs inside this step)
         ▼
-IncidentContext (pydantic model — redacted, capped)
+IncidentContext (pydantic model — sanitized, capped)
         │
         │  .to_prompt_block()           — log2ticket/models.py
         ▼
@@ -233,7 +233,7 @@ the HTTP layer and your code are folded into one line
 buried.
 
 Every piece of text this step touches — the exception message, the source
-excerpt, any locals — is passed through `redact()` before it's placed in the
+excerpt, any locals — is passed through `sanitize()` before it's placed in the
 result. The output is an `IncidentContext`:
 
 ```python
@@ -247,15 +247,15 @@ IncidentContext(
 )
 ```
 
-### 2.4 — `redact`: the one gate every string passes through
+### 2.4 — `sanitize`: the one gate every string passes through
 
-**`src/log2ticket/redact.py`**
+**`src/log2ticket/sanitize.py`**
 
 Ten ordered regex rules, applied inside `ContextAssembler` — never anywhere
 else. If a payment-related frame were on this stack (`payments.charge`, which
 the "Upstream timeout" button exercises), its locals would include a live API
 key, a database password, and an internal email address. All three are
-redacted before they're placed in `IncidentContext`:
+sanitized before they're placed in `IncidentContext`:
 
 | Field | Before | After |
 |---|---|---|
@@ -263,7 +263,7 @@ redacted before they're placed in `IncidentContext`:
 | local `dsn` | `postgresql://payments_user:hunter2@db…` | `postgresql://payments_user:[REDACTED_PASSWORD]@db…` |
 | local `notify` | `payments-oncall@example.com` | `[REDACTED_EMAIL]` |
 
-Redaction runs on the full value *before* it's truncated for display — every
+Sanitizing runs on the full value *before* it's truncated for display — every
 high-value rule is anchored on a closing character (a `@`, a closing quote),
 and truncating first can cut that anchor and let the rule silently fail to
 match.
@@ -349,10 +349,10 @@ TicketOutcome(
 
 **`samples/app/main.py`**
 
-`write_ticket()` packages `context`, `redactions`, the list of tool calls the
+`write_ticket()` packages `context`, `sanitizations`, the list of tool calls the
 agent made, the guardrail summary, and the `TicketOutcome` into one JSON
 response. `samples/app/static/app.js`'s `render()` function turns that into
-the panels you see: what was redacted, what was sent, what the agent
+the panels you see: what was sanitized, what was sent, what the agent
 searched, and the ticket itself.
 
 ---
@@ -365,8 +365,8 @@ searched, and the ticket itself.
 | `samples/app/orders.py`, `payments.py` | — | raises real exceptions | The bugs. Never import `log2ticket` |
 | `log2ticket/capture.py` | live exception object | `IncidentEvent` | Live traceback → structured data, no parsing |
 | `log2ticket/store.py` | `IncidentEvent` | `IncidentEvent` | Bounded in-memory buffer, nothing persisted |
-| `log2ticket/context.py` | `IncidentEvent` | `IncidentContext` | Reads source, attaches locals, calls `redact` |
-| `log2ticket/redact.py` | any string | redacted string | The one gate every piece of text passes through |
+| `log2ticket/context.py` | `IncidentEvent` | `IncidentContext` | Reads source, attaches locals, calls `sanitize` |
+| `log2ticket/sanitize.py` | any string | sanitized string | The one gate every piece of text passes through |
 | `log2ticket/models.py` | — | — | The pydantic types that flow between every module above, plus `to_prompt_block()` |
 | `log2ticket/ticket_writer.py` | `IncidentEvent` | `TicketOutcome` | Runs the LangChain agent against GitHub's MCP server |
 | `log2ticket/guardrails.py` | MCP tool list | gated tool list | Repo allowlist + write cap, enforced in code |

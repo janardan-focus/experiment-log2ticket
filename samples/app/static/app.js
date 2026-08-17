@@ -64,13 +64,13 @@ document.getElementById("inspect").addEventListener("click",
 function render(d) {
   let html = "";
 
-  if (d.redactions) {
-    const hits = Object.entries(d.redactions);
+  if (d.sanitizations) {
+    const hits = Object.entries(d.sanitizations);
     const body = hits.length
       ? hits.map(([rule, n]) =>
           `<span class="tag">${esc(rule)} × ${n}</span>`).join("")
       : `<span class="meta">nothing matched — no secrets found in this incident</span>`;
-    html += `<div class="step"><h2>Redacted before sending</h2>
+    html += `<div class="step"><h2>Sanitized before sending</h2>
       <div class="card">${body}</div></div>`;
   }
 

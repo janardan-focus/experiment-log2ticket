@@ -15,7 +15,7 @@ from log2ticket.capture import capture_exception
 from log2ticket.config import Settings
 from log2ticket.context import ContextAssembler
 from log2ticket.models import Frame, IncidentContext, IncidentEvent
-from log2ticket.redact import redact
+from log2ticket.sanitize import sanitize
 
 
 @pytest.fixture
@@ -70,10 +70,10 @@ def test_env_example_values_load():
         del os.environ["CAPTURE_LOCALS"]
 
 
-# --- 2: redact before truncating ---------------------------------------------
+# --- 2: sanitize before truncating ---------------------------------------------
 
 
-def test_long_secret_is_redacted_before_truncation():
+def test_long_secret_is_sanitized_before_truncation():
     """Truncating first cuts the terminator a rule anchors on, so the rule
     stops matching and the cleartext secret is sent."""
     password = "S3cretPassw0rd" * 3
@@ -157,10 +157,10 @@ def test_excerpt_stays_centred_on_the_failure(repo: Path):
         "api_key_field = models.CharField()",
     ],
 )
-def test_ordinary_code_is_not_redacted(code: str):
+def test_ordinary_code_is_not_sanitized(code: str):
     """The excerpt exists so the model can read the code. Blanking real
     assignments defeats the purpose."""
-    assert redact(code) == code
+    assert sanitize(code) == code
 
 
 @pytest.mark.parametrize(
@@ -171,8 +171,8 @@ def test_ordinary_code_is_not_redacted(code: str):
         'GATEWAY_SECRET = "abcdef123456"',
     ],
 )
-def test_quoted_literal_secrets_still_redacted(code: str):
-    assert "REDACTED" in redact(code)
+def test_quoted_literal_secrets_still_sanitized(code: str):
+    assert "REDACTED" in sanitize(code)
 
 
 # --- 5: the report must describe what is actually sent -----------------------
@@ -246,21 +246,21 @@ def test_zero_line_number_yields_no_excerpt(repo: Path):
 # --- 8: HTTP Basic credentials -----------------------------------------------
 
 
-def test_basic_auth_is_redacted():
-    out = redact("Authorization: Basic dXNlcjpwYXNzd29yZA==")
+def test_basic_auth_is_sanitized():
+    out = sanitize("Authorization: Basic dXNlcjpwYXNzd29yZA==")
     assert "dXNlcjpwYXNzd29yZA==" not in out
     assert "REDACTED" in out
 
 
-def test_bearer_still_redacted():
-    out = redact("Authorization: Bearer abcdef1234567890xyz")
+def test_bearer_still_sanitized():
+    out = sanitize("Authorization: Bearer abcdef1234567890xyz")
     assert "abcdef1234567890xyz" not in out
 
 
-# --- 10: the UI is handed the redaction evidence -----------------------------
+# --- 10: the UI is handed the sanitizing evidence -----------------------------
 
 
-def test_inspect_payload_includes_redactions(tmp_path: Path):
+def test_inspect_payload_includes_sanitizations(tmp_path: Path):
     """The demo's central safety claim has to be visible, not just computed."""
     (tmp_path / "creds.py").write_text('KEY = "sk_live_abcdefghij123456"\n', encoding="utf-8")
     settings = _settings(target_repo_path=tmp_path)
@@ -270,8 +270,8 @@ def test_inspect_payload_includes_redactions(tmp_path: Path):
     assembler = ContextAssembler(settings)
     payload = {
         "context_text": assembler.build(event).to_prompt_block(),
-        "redactions": assembler.report(event),
+        "sanitizations": assembler.report(event),
     }
 
-    assert payload["redactions"]
+    assert payload["sanitizations"]
     assert isinstance(payload["context_text"], str)

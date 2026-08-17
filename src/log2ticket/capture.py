@@ -67,17 +67,17 @@ def exception_chain(exc: BaseException, limit: int = 5) -> list[str]:
 
 # A coarse ceiling so a pathological repr cannot balloon memory. This is NOT
 # the display limit — truncating to the display limit here would cut secrets
-# mid-match and defeat redaction, so the real trim happens after redaction in
+# mid-match and defeat sanitizing, so the real trim happens after sanitizing in
 # ContextAssembler.
 _MEMORY_GUARD_CHARS = 20_000
 
 
 def _clean_locals(raw: dict[str, str], settings: Settings) -> dict[str, str] | None:
     """Select which locals are worth keeping. Does not truncate to the display
-    limit and does not redact — both happen in ContextAssembler, in that order.
+    limit and does not sanitize — both happen in ContextAssembler, in that order.
 
     Ordering matters and is the reason this function deliberately does less
-    than it looks like it should: every high-value redaction rule is anchored
+    than it looks like it should: every high-value sanitizing rule is anchored
     on a terminator (a connection string needs its closing `@`, an assignment
     needs its closing quote). Clipping to 200 characters first can remove that
     terminator, and the rule then fails to match a secret that is plainly

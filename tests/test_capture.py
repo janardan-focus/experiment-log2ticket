@@ -52,11 +52,11 @@ def test_locals_captured_when_enabled():
 
 
 def test_capture_does_not_truncate_to_the_display_limit():
-    """Truncation moved to ContextAssembler, after redaction.
+    """Truncation moved to ContextAssembler, after sanitizing.
 
-    Clipping here would cut the terminator that redaction rules anchor on, so
+    Clipping here would cut the terminator that sanitizing rules anchor on, so
     capture keeps the full value and only applies a coarse memory guard.
-    See test_review_regressions.test_long_secret_is_redacted_before_truncation.
+    See test_review_regressions.test_long_secret_is_sanitized_before_truncation.
     """
     def boom() -> None:
         payload = "x" * 5_000  # noqa: F841

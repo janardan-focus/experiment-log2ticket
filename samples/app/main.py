@@ -107,7 +107,7 @@ async def show_context() -> JSONResponse:
         content={
             "incident_id": event.incident_id,
             "context_text": context.to_prompt_block(),
-            "redactions": assembler.report(event),
+            "sanitizations": assembler.report(event),
         }
     )
 
@@ -130,7 +130,7 @@ async def write_ticket() -> JSONResponse:
     payload: dict[str, object] = {
         "incident_id": event.incident_id,
         "context_text": result.context.to_prompt_block(),
-        "redactions": assembler.report(event),
+        "sanitizations": assembler.report(event),
         "searched": "\n".join(result.tool_calls) or None,
         "guardrails": result.guardrails,
         "dry_run": settings.dry_run,

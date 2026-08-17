@@ -6,7 +6,7 @@ This is the heart of the exploration. Two rules govern everything here:
    resolves outside it is refused, not clipped — a stack frame can point
    anywhere, and this is the boundary that keeps the agent reading your
    application rather than your filesystem.
-2. Everything is redacted here, at one point, before it is returned. Source
+2. Everything is sanitized here, at one point, before it is returned. Source
    excerpts, exception messages, and locals all pass through the same gate, so
    there is exactly one place to audit.
 """
@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .config import Settings
 from .models import Frame, IncidentContext, IncidentEvent
-from .redact import redact, redaction_report
+from .sanitize import sanitize, sanitize_report
 
 # Everything before these markers is machine-specific noise.
 _PATH_TRIM_MARKERS = ("site-packages/", "dist-packages/")
@@ -45,15 +45,15 @@ class ContextAssembler:
         return IncidentContext(
             incident_id=event.incident_id,
             exception_type=event.exception_type,
-            exception_message=redact(event.exception_message),
+            exception_message=sanitize(event.exception_message),
             frames=[self._hydrate(frame) for frame in event.frames],
             endpoint=event.endpoint,
-            chained_from=[redact(item) for item in event.chained_from],
+            chained_from=[sanitize(item) for item in event.chained_from],
             timestamp=event.timestamp,
         )
 
     def _hydrate(self, frame: Frame) -> Frame:
-        """Attach source and redact locals, if this frame is one we may read."""
+        """Attach source and sanitize locals, if this frame is one we may read."""
         if not frame.in_repo:
             return frame.model_copy(
                 update={
@@ -88,20 +88,20 @@ class ContextAssembler:
                 # nothing the model can use.
                 "file": str(resolved.relative_to(self.repo_root)),
                 "source_excerpt": self._excerpt(resolved, frame.line),
-                "locals_repr": self._redact_locals(frame.locals_repr),
+                "locals_repr": self._sanitize_locals(frame.locals_repr),
             }
         )
 
-    def _redact_locals(self, values: dict[str, str] | None) -> dict[str, str] | None:
-        """Redact every local value, *then* truncate.
+    def _sanitize_locals(self, values: dict[str, str] | None) -> dict[str, str] | None:
+        """Sanitize every local value, *then* truncate.
 
         Locals are the highest-risk thing in the payload — a source excerpt
         leaks what is written in the file, locals leak what was flowing through
         it.
 
-        The order is the whole point. Redaction rules are anchored on
+        The order is the whole point. Sanitizing rules are anchored on
         terminators, so truncating first can cut a secret's closing delimiter
-        and silently stop the rule from matching. Redact the full value, then
+        and silently stop the rule from matching. Sanitize the full value, then
         trim the (now safe) result for display.
         """
         if not values:
@@ -110,7 +110,7 @@ class ContextAssembler:
         limit = self.settings.max_local_repr_chars
         out: dict[str, str] = {}
         for name, value in values.items():
-            safe = redact(value)
+            safe = sanitize(value)
             out[name] = safe if len(safe) <= limit else safe[:limit] + "…"
         return out
 
@@ -133,7 +133,7 @@ class ContextAssembler:
         return resolved
 
     def _excerpt(self, path: Path, line: int) -> str | None:
-        """±span lines around `line`, redacted, fitted to the byte budget.
+        """±span lines around `line`, sanitized, fitted to the byte budget.
 
         The budget is spent *outward from the failing line* rather than by
         clipping the tail. Clipping the tail drops the `->` line whenever the
@@ -160,7 +160,7 @@ class ContextAssembler:
             marker = "->" if index == line else "  "
             return f"{marker} {index:>4} | {lines[index - 1]}"
 
-        centre = redact(render(target))
+        centre = sanitize(render(target))
         used = len(centre.encode("utf-8"))
         kept: dict[int, str] = {target: centre}
 
@@ -170,7 +170,7 @@ class ContextAssembler:
             for index in (target - step, target + step):
                 if not (1 <= index <= len(lines)) or index in kept:
                     continue
-                rendered = redact(render(index))
+                rendered = sanitize(render(index))
                 cost = len(rendered.encode("utf-8")) + 1  # + newline
                 if used + cost > budget:
                     truncated = True
@@ -184,9 +184,9 @@ class ContextAssembler:
         return excerpt
 
     def report(self, event: IncidentEvent) -> dict[str, int]:
-        """What redaction caught on its way into the context. Shown in the UI.
+        """What sanitizing caught on its way into the context. Shown in the UI.
 
-        Measured against the *pre-redaction* material that actually reaches the
+        Measured against the *pre-sanitization* material that actually reaches the
         payload — the source excerpts and the raw locals — not against
         `raw_traceback`, which is never sent. An earlier version reported the
         traceback and omitted the excerpts, so it simultaneously over-counted
@@ -209,4 +209,4 @@ class ContextAssembler:
             if frame.locals_repr:
                 material.extend(frame.locals_repr.values())
 
-        return redaction_report("\n".join(material))
+        return sanitize_report("\n".join(material))
