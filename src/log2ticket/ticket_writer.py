@@ -61,9 +61,12 @@ of the bug — not just the literal message. The same defect often surfaces from
 a different line or function after a refactor.
 2. Read the most promising candidates with `issue_read` before deciding.
 3. Act:
-   - a genuine duplicate exists -> reopen it with `issue_write` if it is \
-closed, then `add_issue_comment` with your analysis. Set action "reopened" \
-(or "commented" if it was already open) and duplicate_of to its number.
+   - a genuine duplicate exists -> if it is closed, reopen it with \
+`issue_write` first. Either way — reopened or already open — you MUST call \
+`add_issue_comment` with your analysis; a duplicate match that produces no \
+comment is a silent no-op and defeats the point of finding it. Set action \
+"reopened" if you reopened it, otherwise "commented". Set duplicate_of to \
+its number.
    - no match -> create one with `issue_write`. Set action "created".
 
 Judgement: reopening the wrong issue is worse than filing a duplicate. It is \
