@@ -260,17 +260,43 @@ def _describe_tool_calls(messages: list[Any]) -> list[str]:
     """A readable trace of what the agent actually did, for the UI.
 
     The point of showing this is that 'it found a duplicate' is only
-    believable if you can see the search it ran.
+    believable if you can see the search it ran -- and that a claimed write
+    is only believable if you can see it actually succeeded, not just that
+    it wasn't refused by our own guardrails. A tool call can pass
+    WriteGuard's checks and still fail downstream, at the MCP server or the
+    GitHub API itself; the model tends to gloss over that failure rather
+    than report it, so the raw result matters as much as the raw request.
     """
     described: list[str] = []
+    call_names: dict[str, str] = {}
+
     for message in messages:
         for call in getattr(message, "tool_calls", None) or []:
             name = call.get("name", "?")
+            call_id = call.get("id")
+            if call_id:
+                call_names[call_id] = name
             args = call.get("args", {}) or {}
             interesting = {
                 k: v
                 for k, v in args.items()
                 if k in {"query", "issue_number", "title", "state", "owner", "repo", "method"}
             }
+            # Not shown in full -- it can be a long comment/issue body -- but
+            # its presence and size is exactly what settled the "was `body`
+            # even sent?" question last time, so worth a byte count.
+            if "body" in args:
+                interesting["body"] = f"<{len(str(args['body']))} chars>"
             described.append(f"{name}({interesting})" if interesting else name)
+
+        tool_call_id = getattr(message, "tool_call_id", None)
+        if tool_call_id is not None:
+            name = call_names.get(tool_call_id, "?")
+            status = getattr(message, "status", None)
+            content = str(getattr(message, "content", "") or "").strip()
+            if len(content) > 300:
+                content = content[:300] + "…"
+            marker = "ERROR" if status == "error" else "ok"
+            described.append(f"  -> {name} {marker}: {content}")
+
     return described
